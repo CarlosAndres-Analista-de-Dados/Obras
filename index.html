@@ -38,6 +38,35 @@ html.dark .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.95)
 html.dark .theme-toggle{background:linear-gradient(180deg,#1e293b,#111a2c)}
 html.dark .theme-toggle .toggle-knob{transform:translateX(24px);background:#0b1220}
 html.dark .theme-toggle .toggle-knob i{color:#93c5fd}
+@keyframes meshGlow {
+    0% { transform: translate(0, 0); }
+    100% { transform: translate(28px, 28px); }
+}
+
+@keyframes orbPulse {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.15; }
+    50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.25; }
+}
+
+.mesh-glow {
+    animation: meshGlow 5s linear infinite;
+}
+
+.orb-pulse {
+    animation: orbPulse 8s ease-in-out infinite;
+}
+@keyframes moveMesh {
+0% {
+    transform: translate(0, 0);
+}
+100% {
+    transform: translate(24px, 24px); /* Deve ser igual ao background-size (24px) */
+}
+}
+
+.mesh-move {
+animation: moveMesh 3s linear infinite;
+}
 </style>
 </head>
 <body class="bg-slate-100 text-slate-800 antialiased selection:bg-sky-500 selection:text-white">
@@ -64,13 +93,22 @@ html.dark .theme-toggle .toggle-knob i{color:#93c5fd}
  </div>
 </header>
 
-<section class="bg-gradient-to-br from-ipfoz-darkblue to-ipfoz-blue text-white pb-16 pt-10">
- <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<section id="overview" class="bg-gradient-to-r from-slate-900 via-slate-800 to-sky-950 text-white py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+    <div class="absolute inset-0 opacity-45 overflow-hidden pointer-events-none">
+        <div class="w-[200%] h-[200%] -top-[50%] -left-[50%] absolute bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:24px_24px] mesh-move glow-pulse"></div>
+    </div> 
   <h2 class="text-2xl sm:text-4xl font-extrabold">Avanço da instalação, ponto a ponto</h2>
   <p class="mt-2 text-sky-100 max-w-2xl">Acompanhe no mapa cada ponto luminoso da obra: o que já foi instalado, o que está em andamento e o que falta. Atualizado em <strong id="atualizado">—</strong>.</p>
   <div class="mt-6 max-w-xl">
    <div class="flex justify-between text-sm font-semibold mb-1"><span>Obra concluída</span><span id="heroPct">0%</span></div>
    <div id="heroBar" class="h-3 rounded-full bg-white/25 overflow-hidden flex" role="img" aria-label="Avanço da obra"></div>
+  </div>
+  <div class="mt-6 flex flex-wrap gap-4 max-w-2xl">
+   <label class="flex-1 min-w-[200px] text-sm font-semibold">Obra
+    <select id="fObra" class="mt-1 w-full rounded-lg bg-white text-slate-900 px-3 py-2 text-sm font-medium border border-white/30"></select></label>
+   <label class="flex-1 min-w-[200px] text-sm font-semibold">Situação da obra
+    <select id="fSit" class="mt-1 w-full rounded-lg bg-white text-slate-900 px-3 py-2 text-sm font-medium border border-white/30">
+     <option value="todas">Todas</option><option value="andamento">Em andamento</option><option value="concluida">Concluídas</option><option value="nao">Não iniciadas</option></select></label>
   </div>
  </div>
 </section>
@@ -106,9 +144,9 @@ html.dark .theme-toggle .toggle-knob i{color:#93c5fd}
  <section id="tabela" class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-6">
   <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
    <h3 class="text-lg font-bold text-slate-900"><i class="fa-solid fa-database text-sky-600 mr-2"></i>Lista de pontos</h3>
-   <input id="busca" type="search" placeholder="Buscar por ID, bairro ou rua" class="w-full sm:w-72 border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+   <input id="busca" type="search" placeholder="Buscar por ID, obra, bairro ou rua" class="w-full sm:w-72 border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
   </div>
-  <div class="overflow-x-auto"><table class="w-full text-sm text-left"><thead class="text-xs text-slate-500 border-b border-slate-200"><tr><th class="py-2 pr-3">ID</th><th class="pr-3">Tipo</th><th class="pr-3">Bairro</th><th class="pr-3">Endereço</th><th class="pr-3">Situação</th><th>Data</th></tr></thead><tbody id="corpo"></tbody></table></div>
+  <div class="overflow-x-auto"><table class="w-full text-sm text-left"><thead class="text-xs text-slate-500 border-b border-slate-200"><tr><th class="py-2 pr-3">ID</th><th class="pr-3">Obra</th><th class="pr-3">Tipo</th><th class="pr-3">Bairro</th><th class="pr-3">Endereço</th><th class="pr-3">Situação</th><th>Data</th></tr></thead><tbody id="corpo"></tbody></table></div>
   <p id="maisInfo" class="text-xs text-slate-500 mt-3"></p>
  </section>
 </main>
@@ -137,11 +175,17 @@ const PLANTA={lum:[[-25.5330697, -54.5897568], [-25.5330709, -54.5897725], [-25.
 const AJ={e:-120,n:4,rot:0,esc:113};
 function exemplo(){const o=[],n=PLANTA.lum.length;
  PLANTA.lum.forEach((c,i)=>{const r=i/n,st=r<.5?'instalado':r<.65?'andamento':'pendente';
-  o.push({id:'L-'+String(i+1).padStart(3,'0'),tipo:'Luminária',bairro:'Bosque Guarani',endereco:'Interior do parque',lat:c[0],lng:c[1],status:st,data:st==='instalado'?String(1+i%28).padStart(2,'0')+'/09/2026':'',planta:true})});
+  o.push({id:'L-'+String(i+1).padStart(3,'0'),tipo:'Luminária',obra:'Parque Bosque Guarani',bairro:'Bosque Guarani',endereco:'Interior do parque',lat:c[0],lng:c[1],status:st,data:st==='instalado'?String(1+i%28).padStart(2,'0')+'/09/2026':'',planta:true})});
  const sc=['instalado','instalado','andamento','pendente','pendente'];
- PLANTA.cx.forEach((c,i)=>o.push({id:'CP-'+String(i+1).padStart(2,'0'),tipo:'Caixa de passagem',bairro:'Bosque Guarani',endereco:'Interior do parque',lat:c[0],lng:c[1],status:sc[i],data:sc[i]==='instalado'?'1'+i+'/09/2026':'',planta:true}));
- return o}
+ PLANTA.cx.forEach((c,i)=>o.push({id:'CP-'+String(i+1).padStart(2,'0'),tipo:'Caixa de passagem',obra:'Parque Bosque Guarani',bairro:'Bosque Guarani',endereco:'Interior do parque',lat:c[0],lng:c[1],status:sc[i],data:sc[i]==='instalado'?'1'+i+'/09/2026':'',planta:true}));
+ return o.concat(outras())}
 const centro=()=>{const a=PLANTA.contorno;return[a.reduce((t,x)=>t+x[0],0)/a.length,a.reduce((t,x)=>t+x[1],0)/a.length]};
+function outras(){const o=[],a=PLANTA.contorno;
+ const lado=(i,j,dlat,nome,st,end,pref)=>{for(let k=0;k<14;k++){const t=(k+.5)/14,lat=a[i][0]+(a[j][0]-a[i][0])*t,lng=a[i][1]+(a[j][1]-a[i][1])*t,q=aj(lat,lng);
+  o.push({id:pref+String(k+1).padStart(2,'0'),tipo:'Luminária',obra:nome,bairro:'Centro',endereco:end,lat:q[0]+dlat,lng:q[1],status:st(k),data:st(k)==='instalado'?String(1+k%20).padStart(2,'0')+'/08/2026':'',planta:false})}};
+ lado(3,2,-.00022,'Av. República Argentina',()=>'instalado','Av. República Argentina','AR-');
+ lado(0,1,.00022,'Rua Mem de Sá',()=>'pendente','Rua Mem de Sá','MS-');
+ return o}
 function aj(lat,lng){const c=centro(),k=111320,cl=Math.cos(c[0]*Math.PI/180);
  let x=(lng-c[1])*k*cl,y=(lat-c[0])*k;const f=AJ.esc/100,t=AJ.rot*Math.PI/180;
  const X=(x*Math.cos(t)-y*Math.sin(t))*f+AJ.e,Y=(x*Math.sin(t)+y*Math.cos(t))*f+AJ.n;
@@ -150,39 +194,51 @@ const norm=s=>{s=String(s||'').toLowerCase();return s.startsWith('inst')||s==='l
 const num=v=>parseFloat(String(v).replace(',','.'));
 const isoData=d=>{const m=String(d||'').match(/(\d{2})\/(\d{2})\/(\d{4})/);return m?m[3]+'-'+m[2]+'-'+m[1]:''};
 function fromRows(rows){return rows.map(r=>{const k={};Object.keys(r).forEach(x=>k[x.trim().toLowerCase()]=r[x]);
- return{id:k.id,tipo:k.tipo||'Luminária',bairro:k.bairro||'',endereco:k.endereco||'',lat:num(k.lat),lng:num(k.lng),status:norm(k.status),data:k.data||''}}).filter(p=>!isNaN(p.lat)&&!isNaN(p.lng))}
+ return{id:k.id,tipo:k.tipo||'Luminária',obra:k.obra||'Obra única',bairro:k.bairro||'',endereco:k.endereco||'',lat:num(k.lat),lng:num(k.lng),status:norm(k.status),data:k.data||''}}).filter(p=>!isNaN(p.lat)&&!isNaN(p.lng))}
 
-function carregar(l){pts=l;ativos=new Set(Object.keys(ST));resumo();desenhar(true);tabela();grafico()}
-function cont(){const c={instalado:0,andamento:0,pendente:0};pts.forEach(p=>c[p.status]++);return c}
-function resumo(){const c=cont(),t=pts.length,pct=t?c.instalado/t*100:0;
+function carregar(l){pts=l;fSit.value='todas';montaObras();filtrou()}
+function contDe(l){const c={instalado:0,andamento:0,pendente:0};l.forEach(p=>c[p.status]++);return c}
+function sitObra(l){const c=contDe(l);return c.instalado===l.length?'concluida':(c.instalado+c.andamento>0?'andamento':'nao')}
+function obras(){const m={};pts.forEach(p=>(m[p.obra]=m[p.obra]||[]).push(p));return m}
+const ROT={todas:'Todas',andamento:'Em andamento',concluida:'Concluída',nao:'Não iniciada'};
+function montaObras(){const m=obras(),sit=fSit.value,atual=fObra.value;
+ const nomes=Object.keys(m).filter(n=>sit==='todas'||sitObra(m[n])===sit);
+ fObra.innerHTML='<option value="todas">Todas as obras ('+nomes.length+')</option>'+nomes.map(n=>{const l=m[n],pc=Math.round(contDe(l).instalado/l.length*100);return`<option value="${n.replace(/"/g,'&quot;')}">${n} – ${pc}% (${ROT[sitObra(l)]})</option>`}).join('');
+ fObra.value=nomes.includes(atual)?atual:'todas'}
+function base(){const m=obras(),sit=fSit.value,ob=fObra.value;
+ return pts.filter(p=>(ob==='todas'||p.obra===ob)&&(sit==='todas'||sitObra(m[p.obra])===sit))}
+function filtrou(){ativos=new Set(Object.keys(ST));resumo();desenhar(true);tabela();grafico()}
+fSit.onchange=()=>{montaObras();filtrou()};fObra.onchange=filtrou;
+function cont(){return contDe(base())}
+function resumo(){const c=cont(),t=base().length,pct=t?c.instalado/t*100:0;
  kTotal.textContent=t.toLocaleString('pt-BR');kOk.textContent=c.instalado.toLocaleString('pt-BR');kAnd.textContent=c.andamento.toLocaleString('pt-BR');
  kPct.textContent=heroPct.textContent=pct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%';
  heroBar.innerHTML=Object.keys(ST).map(k=>`<i style="display:block;height:100%;width:${t?c[k]/t*100:0}%;background:${ST[k].c}"></i>`).join('');
  chips.innerHTML='';Object.keys(ST).forEach(k=>{const b=document.createElement('button');b.className='chip flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full border border-slate-300 bg-white';
   b.setAttribute('aria-pressed',ativos.has(k));b.innerHTML=`<span style="width:10px;height:10px;border-radius:50%;background:${ST[k].c}"></span>${ST[k].n} (${c[k]})`;
   b.onclick=()=>{ativos.has(k)?ativos.delete(k):ativos.add(k);resumo();desenhar(false);tabela()};chips.appendChild(b)});
- const ds=pts.map(p=>isoData(p.data)).filter(Boolean).sort();atualizado.textContent=ds.length?ds[ds.length-1].split('-').reverse().join('/'):new Date().toLocaleDateString('pt-BR')}
+ const ds=base().map(p=>isoData(p.data)).filter(Boolean).sort();atualizado.textContent=ds.length?ds[ds.length-1].split('-').reverse().join('/'):new Date().toLocaleDateString('pt-BR')}
 let contorno=null;
 function desenhar(ajusta){grupo.clearLayers();const b=[];
  if(contorno){map.removeLayer(contorno);contorno=null}
- if(pts.some(p=>p.planta)){contorno=L.polygon(PLANTA.contorno.map(c=>aj(c[0],c[1])),{color:'#0088cc',weight:2,dashArray:'6 6',fill:false}).addTo(map)}
- pts.forEach(p=>{if(!ativos.has(p.status))return;const s=ST[p.status],ll=p.planta?aj(p.lat,p.lng):[p.lat,p.lng];
-  const pop=`<b>${p.tipo} ${p.id}</b><br>${p.bairro}${p.endereco?' – '+p.endereco:''}<br><span style="color:${s.c};font-weight:700">${s.n}</span>${p.data?'<br>Data: '+p.data:''}`;
+ if(base().some(p=>p.planta)){contorno=L.polygon(PLANTA.contorno.map(c=>aj(c[0],c[1])),{color:'#0088cc',weight:2,dashArray:'6 6',fill:false}).addTo(map)}
+ base().forEach(p=>{if(!ativos.has(p.status))return;const s=ST[p.status],ll=p.planta?aj(p.lat,p.lng):[p.lat,p.lng];
+  const pop=`<b>${p.tipo} ${p.id}</b><br>${p.obra}<br>${p.bairro}${p.endereco?' – '+p.endereco:''}<br><span style="color:${s.c};font-weight:700">${s.n}</span>${p.data?'<br>Data: '+p.data:''}`;
   if(p.tipo==='Caixa de passagem')L.marker(ll,{icon:L.divIcon({className:'',iconSize:[16,16],iconAnchor:[8,8],html:`<div style="width:16px;height:16px;background:${s.c};border:2px solid #fff;box-shadow:0 0 0 1px #334155"></div>`})}).bindPopup(pop).addTo(grupo);
   else L.circleMarker(ll,{radius:5,color:'#fff',weight:1.2,fillColor:s.c,fillOpacity:1}).bindPopup(pop).addTo(grupo);
   b.push(ll)});
  if(ajusta&&b.length)map.fitBounds(b,{padding:[30,30]})}
-function tabela(){const q=busca.value.toLowerCase(),l=pts.filter(p=>ativos.has(p.status)&&(`${p.id} ${p.bairro} ${p.endereco}`).toLowerCase().includes(q));
- corpo.innerHTML=l.slice(0,100).map(p=>`<tr class="border-b border-slate-100"><td class="py-2 pr-3 font-semibold">${p.id}</td><td class="pr-3">${p.tipo}</td><td class="pr-3">${p.bairro}</td><td class="pr-3">${p.endereco}</td><td class="pr-3"><span style="color:${ST[p.status].c};font-weight:600">${ST[p.status].n}</span></td><td>${p.data||'—'}</td></tr>`).join('');
+function tabela(){const q=busca.value.toLowerCase(),l=base().filter(p=>ativos.has(p.status)&&(`${p.id} ${p.obra} ${p.bairro} ${p.endereco}`).toLowerCase().includes(q));
+ corpo.innerHTML=l.slice(0,100).map(p=>`<tr class="border-b border-slate-100"><td class="py-2 pr-3 font-semibold">${p.id}</td><td class="pr-3">${p.obra}</td><td class="pr-3">${p.tipo}</td><td class="pr-3">${p.bairro}</td><td class="pr-3">${p.endereco}</td><td class="pr-3"><span style="color:${ST[p.status].c};font-weight:600">${ST[p.status].n}</span></td><td>${p.data||'—'}</td></tr>`).join('');
  maisInfo.textContent=l.length>100?`Mostrando 100 de ${l.length} pontos. Use a busca para filtrar.`:`${l.length} ponto(s).`}
 busca.oninput=tabela;
-function grafico(){const por={};pts.filter(p=>p.status==='instalado'&&isoData(p.data)).forEach(p=>{const d=isoData(p.data);por[d]=(por[d]||0)+1});
+function grafico(){const por={};base().filter(p=>p.status==='instalado'&&isoData(p.data)).forEach(p=>{const d=isoData(p.data);por[d]=(por[d]||0)+1});
  const ds=Object.keys(por).sort();let ac=0;const v=ds.map(d=>ac+=por[d]);const dk=document.documentElement.classList.contains('dark'),tx=dk?'#94a3b8':'#64748b';
  if(chart)chart.destroy();chart=new Chart(document.getElementById('grafico'),{type:'line',data:{labels:ds.map(d=>d.split('-').reverse().join('/')),datasets:[{label:'Instalados (acumulado)',data:v,borderColor:'#0088cc',backgroundColor:'rgba(0,136,204,.15)',fill:true,tension:.25,pointRadius:2}]},
  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:tx}}},scales:{x:{ticks:{color:tx}},y:{ticks:{color:tx},beginAtZero:true}}}})}
 
 arq.onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const wb=XLSX.read(await f.arrayBuffer(),{type:'array',raw:false});
- const l=fromRows(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''}));if(!l.length)throw 0;carregar(l)}catch(_){alert('Não foi possível ler o arquivo. Use as colunas: id, bairro, endereco, lat, lng, status, data.')}};
+ const l=fromRows(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''}));if(!l.length)throw 0;carregar(l)}catch(_){alert('Não foi possível ler o arquivo. Use as colunas: id, obra, tipo, bairro, endereco, lat, lng, status, data.')}};
 
 carregar(exemplo());
 fetch('pontos.csv',{cache:'no-store'}).then(r=>r.ok?r.text():Promise.reject()).then(t=>{const wb=XLSX.read(t,{type:'string'});const l=fromRows(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''}));if(l.length)carregar(l)}).catch(()=>{});
