@@ -92,7 +92,10 @@ html.dark .theme-toggle .toggle-knob i{color:#93c5fd}
   </div>
   <div id="map"></div>
   <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600"><span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#64748b"></span> Luminária</span><span><span style="display:inline-block;width:10px;height:10px;background:#64748b"></span> Caixa de passagem</span><span>Linha tracejada: limite do parque</span></div>
-  
+  <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+   <span>Situação de exemplo (posições vindas da planta). Coloque <code>pontos.csv</code> na mesma pasta do site ou carregue um arquivo:</span>
+   <label class="cursor-pointer px-3 py-1.5 border border-dashed border-sky-500 text-sky-600 rounded-lg font-semibold focus-within:ring-2 focus-within:ring-sky-500">Carregar CSV/XLSX<input id="arq" type="file" accept=".csv,.xlsx,.xls" class="sr-only"></label>
+  </div>
  </section>
 
  <section id="evolucao" class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-6">
@@ -178,7 +181,6 @@ function grafico(){const por={};pts.filter(p=>p.status==='instalado'&&isoData(p.
  if(chart)chart.destroy();chart=new Chart(document.getElementById('grafico'),{type:'line',data:{labels:ds.map(d=>d.split('-').reverse().join('/')),datasets:[{label:'Instalados (acumulado)',data:v,borderColor:'#0088cc',backgroundColor:'rgba(0,136,204,.15)',fill:true,tension:.25,pointRadius:2}]},
  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:tx}}},scales:{x:{ticks:{color:tx}},y:{ticks:{color:tx},beginAtZero:true}}}})}
 
-[['sE','vE','e'],['sN','vN','n'],['sR','vR','rot'],['sS','vS','esc']].forEach(([a,v,k])=>{const el=document.getElementById(a);el.oninput=()=>{AJ[k]=parseFloat(el.value);document.getElementById(v).textContent=el.value;desenhar(false)}});
 arq.onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const wb=XLSX.read(await f.arrayBuffer(),{type:'array',raw:false});
  const l=fromRows(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''}));if(!l.length)throw 0;carregar(l)}catch(_){alert('Não foi possível ler o arquivo. Use as colunas: id, bairro, endereco, lat, lng, status, data.')}};
 
